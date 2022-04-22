@@ -24,9 +24,8 @@ if os.getenv('volna') is not None:
     C.volna = os.environ['volna']
 else:
     # C.volna = '/home/jc/Documents/Codes/TorchSemiSeg/DATA/' # the path to the data dir.
-    # C.volna = "/home/jc/Documents/Data/TorchSemiSeg/"
+    C.volna = "/home/jc/Documents/Data/TorchSemiSeg/"
     # C.volna = "/home/jc/Codes/TorchSemiSeg/"
-    C.volna = "/media/data/yifan/jinchao/code/gitcode/TorchSemiSeg/"
 
 """please config ROOT_dir and user when u first using"""
 C.repo_name = 'TorchSemiSeg'
