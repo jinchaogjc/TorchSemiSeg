@@ -23,7 +23,10 @@ remoteip = os.popen('pwd').read()
 if os.getenv('volna') is not None:
     C.volna = os.environ['volna']
 else:
-    C.volna = '/home/cxk/msra_container/' # the path to the data dir.
+    # C.volna = '/home/jc/Documents/Codes/TorchSemiSeg/DATA/' # the path to the data dir.
+    # C.volna = "/home/jc/Documents/Data/TorchSemiSeg/"
+    # C.volna = "/home/jc/Codes/TorchSemiSeg/"
+    C.volna = "/media/data/yifan/jinchao/code/gitcode/TorchSemiSeg/"
 
 """please config ROOT_dir and user when u first using"""
 C.repo_name = 'TorchSemiSeg'
@@ -61,7 +64,13 @@ def add_path(path):
 add_path(osp.join(C.root_dir, 'furnace'))
 
 ''' Experiments Setting '''
-C.labeled_ratio = 8     # ratio of labeled set
+# C.labeled_ratio = 16     # ratio of labeled set
+if os.getenv('labeled_ratio'):
+    C.labeled_ratio = int(os.environ['labeled_ratio'])
+else:
+    # C.lr = 0.005
+    C.labeled_ratio = 8
+
 C.train_source = osp.join(C.dataset_path, "subset_train_aug/train_aug_labeled_1-{}.txt".format(C.labeled_ratio))
 C.unsup_source = osp.join(C.dataset_path, "subset_train_aug/train_aug_unlabeled_1-{}.txt".format(C.labeled_ratio))
 C.eval_source = osp.join(C.dataset_path, "val.txt")
@@ -78,8 +87,15 @@ C.num_classes = 21
 C.background = 0
 C.image_mean = np.array([0.485, 0.456, 0.406])  # 0.485, 0.456, 0.406
 C.image_std = np.array([0.229, 0.224, 0.225])
-C.image_height = 512
-C.image_width = 512
+if os.getenv('image_size'):
+    C.image_height = int(os.environ['image_size'])
+    C.image_width = int(os.environ['image_size'])
+else:
+    C.image_height = 512
+    C.image_width = 512
+    # C.image_height = 256
+    # C.image_width = 256
+
 C.num_train_imgs = 10582 // C.labeled_ratio
 C.num_eval_imgs = 1449
 C.num_unsup_imgs = 10582 - C.num_train_imgs     # unsupervised samples
@@ -88,18 +104,20 @@ C.num_unsup_imgs = 10582 - C.num_train_imgs     # unsupervised samples
 if os.getenv('learning_rate'):
     C.lr = float(os.environ['learning_rate'])
 else:
-    C.lr = 0.005
+    # C.lr = 0.005
+    C.lr = 0.0025
 
 if os.getenv('batch_size'):
     C.batch_size = int(os.environ['batch_size'])
 else:
-    C.batch_size = 16
+    # C.batch_size = 16
+    C.batch_size = 2
 
 C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 1e-4
 
-C.nepochs = 34
+# C.nepochs = 34 # 34
 C.max_samples = max(C.num_train_imgs, C.num_unsup_imgs)     # Define the iterations in an epoch
 C.cold_start = 0
 C.niters_per_epoch = int(math.ceil(C.max_samples * 1.0 // C.batch_size))
@@ -119,7 +137,46 @@ C.eval_crop_size = 512
 if os.getenv('snapshot_iter'):
     C.snapshot_iter = int(os.environ['snapshot_iter'])
 else:
-    C.snapshot_iter = 2
+    # C.snapshot_iter = 2
+    C.snapshot_iter = 1
 
 C.record_info_iter = 20
 C.display_iter = 50
+
+"""Train Config"""
+if os.getenv('experiment_number'):
+    C.exp_num = int(os.environ['experiment_number'])
+else:
+    # C.lr = 0.005
+    C.exp_num = 2
+
+if os.getenv('experiment_name'):
+    C.exp_name = str(os.environ['experiment_name'])
+else:
+    # C.lr = 0.005
+    C.exp_name = "default_name"
+
+if os.getenv('nepochs'):
+    C.nepochs = int(os.environ['nepochs'])
+else:
+    # C.lr = 0.005
+    C.nepochs = 34
+
+if os.getenv('scale'):
+    C.scale = float(os.environ['scale'])
+else:
+    # C.lr = 0.005
+    C.scale = 1.0
+
+# select from {1, 2.5, 5, 7.5, 10}
+if os.getenv('lambda0'):
+    C.lambda0 = float(os.environ['scale'])
+else:
+    # C.lr = 0.005
+    C.lambda0 = 7.5
+
+# if os.getenv('restore_checkpoint_path'):
+#     C.continue_fpath = str(os.environ['restore_checkpoint_path'])
+#     # print(C.continue_fpath)
+# else:
+#     C.continue_fpath = None
