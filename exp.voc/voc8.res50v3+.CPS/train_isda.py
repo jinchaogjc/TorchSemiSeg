@@ -24,7 +24,7 @@ from seg_opr.loss_opr import SigmoidFocalLoss, ProbOhemCrossEntropy2d
 # from seg_opr.sync_bn import DataParallelModel, Reduce, BatchNorm2d
 from tensorboardX import SummaryWriter
 from ISDA import EstimatorCV, ISDALoss
-from loss.criterion import CriterionDSN
+# from loss.criterion import CriterionDSN
 
 try:
     from apex.parallel import DistributedDataParallel, SyncBatchNorm
@@ -83,7 +83,7 @@ with Engine(custom_parser=parser) as engine:
     # config network and criterion
     criterion = nn.CrossEntropyLoss(reduction='mean', ignore_index=255)
     criterion_csst = nn.MSELoss(reduction='mean')
-    criterion_isda = CriterionDSN()
+    # criterion_isda = CriterionDSN()
 
     if engine.distributed:
         BatchNorm2d = SyncBatchNorm
@@ -513,8 +513,8 @@ with Engine(custom_parser=parser) as engine:
                 # input()
 
 
-                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_l, ratio)
-                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
+                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio)
+                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_l, ratio)
 
                 # x_isda_r = isda_augmentor_1(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
                 # x_dsn_isda_r = isda_augmentor_2(feature_x_dsn_unsup_r, model.module.branch2.final_conv_2, x_dsn_unsup_r, max_r, ratio)
@@ -683,14 +683,14 @@ with Engine(custom_parser=parser) as engine:
                 #                                   max_l, ratio)
 
                 x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l,
-                                                  max_r, ratio)
-                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r,
                                                   max_l, ratio)
+                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r,
+                                                  max_r, ratio)
 
                 # x_isda_r = isda_augmentor_1(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
                 # x_dsn_isda_r = isda_augmentor_2(feature_x_dsn_unsup_r, model.module.branch2.final_conv_2, x_dsn_unsup_r, max_r, ratio)
                 # print(x_isda.shape)
-                # print(gts.shape)
+                # print(gts.shape)ex
                 _, h, w = max_l.shape
                 x_isda_pred_unsup_l = F.interpolate(input=x_isda_unsup_l, size=(h, w), mode='bilinear',
                                                     align_corners=True)
@@ -708,7 +708,7 @@ with Engine(custom_parser=parser) as engine:
                 t = torch.flatten(pred_unsup_l, start_dim=2)
                 loss_isda_unlabeled += criterion_kl(F.log_softmax(s / T, dim=-1),
                                                     F.softmax(t / T, dim=-1))/(s.numel()/s.shape[-1])
-                beta = 1.5
+                beta = 1
                 loss_isda_unlabeled = loss_isda_unlabeled * beta
                 # print(loss_isda_unlabeled)
                 # loss_isda_r = criterion_isda([x_isda_r, x_dsn_isda_r], max_r)

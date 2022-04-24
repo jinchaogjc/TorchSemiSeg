@@ -277,12 +277,22 @@ if __name__ == '__main__':
     # v3plus_feature, feature_x_dsn = feature_x_list[0], feature_x_list[1]
     # v3plus_feature, feature_x_dsn = feature_x_list[0], feature_x_list[1]
 
-    x, x_dsn, feature_x_dsn, v3plus_feature, pred = model(image, isda=True)
+    # x, x_dsn, feature_x_dsn, v3plus_feature, pred = model(image, isda=True)
+    #
+    # # print(out)
+    # # print(out[0].shape)
+    # print(v3plus_feature.shape)
+    # print(pred.shape)
+    # print(x.shape)
+    # print(x_dsn.shape)
+    # print(feature_x_dsn.shape)
+
+    x, v3plus_feature, pred = model(image, isda=True)
 
     # print(out)
     # print(out[0].shape)
     print(v3plus_feature.shape)
     print(pred.shape)
     print(x.shape)
-    print(x_dsn.shape)
-    print(feature_x_dsn.shape)
+    # print(x_dsn.shape)
+    # print(feature_x_dsn.shape)
