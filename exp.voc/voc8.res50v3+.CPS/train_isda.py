@@ -512,9 +512,9 @@ with Engine(custom_parser=parser) as engine:
                 # print(max_l.shape)
                 # input()
 
-
-                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio)
-                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_l, ratio)
+                aug_ratio = 1.0
+                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio, aug_ratio=aug_ratio)
+                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_l, ratio, aug_ratio=aug_ratio)
 
                 # x_isda_r = isda_augmentor_1(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
                 # x_dsn_isda_r = isda_augmentor_2(feature_x_dsn_unsup_r, model.module.branch2.final_conv_2, x_dsn_unsup_r, max_r, ratio)
