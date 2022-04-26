@@ -71,7 +71,7 @@ class ISDALoss(nn.Module):
 
         self.cross_entropy = nn.CrossEntropyLoss()
 
-    def isda_aug(self, fc, features, y, labels, cv_matrix, ratio):
+    def isda_aug(self, fc, features, y, labels, cv_matrix, ratio, aug_ratio=0.5):
         label_mask = (labels == 255).long()
         labels = (1 - label_mask).mul(labels).long()
 
@@ -79,9 +79,13 @@ class ISDALoss(nn.Module):
         C = self.class_num
         A = features.size(1)
 
-        weight_m = list(fc.parameters())[0].squeeze()
+        # TODO
+        # weight_m = list(fc.parameters())[0].squeeze()
+        weight_m = list(fc.parameters())[0].squeeze().cuda()
 
-        NxW_ij = weight_m.expand(N, C, A)
+        # TODO
+        # NxW_ij = weight_m.expand(N, C, A)
+        NxW_ij = weight_m.expand(N, C, A).cuda()
 
         NxW_kj = torch.gather(NxW_ij,
                               1,
@@ -97,11 +101,11 @@ class ISDALoss(nn.Module):
         # !!!!!!!!!!!!!!!!RuntimeError: expected backend CUDA and dtype Float but got backend CUDA and dtype Long
         label_mask = label_mask.float()
 
-        aug_result = y + 0.5 * sigma2.mul((1 - label_mask).view(N, 1).expand(N, C))
+        aug_result = y + aug_ratio * sigma2.mul((1 - label_mask).view(N, 1).expand(N, C))
 
         return aug_result
 
-    def forward(self, features, final_conv, y, target_x, ratio):
+    def forward(self, features, final_conv, y, target_x, ratio, aug_ratio=0.5):
         # features = model(x)
 
         N, A, H, W = features.size()
@@ -123,8 +127,39 @@ class ISDALoss(nn.Module):
         self.estimator.update_CV(features_NHWxA.detach(), target_x_NHW)
 
         isda_aug_y_NHWxC = self.isda_aug(final_conv, features_NHWxA, y_NHWxC, target_x_NHW,
-                                         self.estimator.CoVariance.detach(), ratio)
+                                         self.estimator.CoVariance.detach(), ratio, aug_ratio=aug_ratio)
 
         isda_aug_y = isda_aug_y_NHWxC.view(N, H, W, C).permute(0, 3, 1, 2)
 
         return isda_aug_y
+
+
+if __name__ == '__main__':
+    pass
+
+    # feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio
+
+    from network_isda import Network
+    from utils.init_func import init_weight
+    # model.module.branch1.final_conv_1
+    model = Network(21, criterion=nn.CrossEntropyLoss(reduction='mean', ignore_index=255),
+                    pretrained_model="../../DATA/pytorch-weight/resnet50_v1c.pth",
+                    norm_layer=nn.BatchNorm2d)
+    init_weight(model.branch1.business_layer, nn.init.kaiming_normal_,
+                nn.BatchNorm2d, 1e-5, 0.1,
+                mode='fan_in', nonlinearity='relu')
+    feature_x_unsup_l = torch.randn(2, 256, 128, 128)
+    x_unsup_l = torch.randn(2, 21, 128, 128)
+    max_r = torch.randint(21, (2, 512, 512))
+    ratio = 7.5 / 40000
+    # isda_augmentor_1 = ISDALoss(256, 21, "cuda")
+    device = "cuda:0"
+    isda_augmentor_1 = ISDALoss(256, 21, device)
+    feature_x_unsup_l = feature_x_unsup_l.to(device)
+    x_unsup_l = x_unsup_l.to(device)
+    max_r = max_r.to(device)
+    # feature_x_unsup_l.cuda()
+    # x_unsup_l.cuda()
+    # max_r.cuda()
+    x_isda_l = isda_augmentor_1(feature_x_unsup_l, model.branch1.final_conv_1, x_unsup_l, max_r, ratio)
+    print(x_isda_l.shape)

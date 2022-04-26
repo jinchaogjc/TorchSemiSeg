@@ -169,10 +169,16 @@ else:
 
 # select from {1, 2.5, 5, 7.5, 10}
 if os.getenv('lambda0'):
-    C.lambda0 = float(os.environ['scale'])
+    C.lambda0 = float(os.environ['lambda0'])
 else:
     # C.lr = 0.005
     C.lambda0 = 7.5
+
+if os.getenv('augratio'):
+    C.aug_ratio = float(os.environ['augratio'])
+else:
+    # C.lr = 0.005
+    C.aug_ratio = 0.5
 
 # if os.getenv('restore_checkpoint_path'):
 #     C.continue_fpath = str(os.environ['restore_checkpoint_path'])
