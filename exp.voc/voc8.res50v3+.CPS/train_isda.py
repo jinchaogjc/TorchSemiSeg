@@ -50,7 +50,7 @@ else:
     is_debug = False
 
 LAMBDA_0 = config.lambda0 # select from {1, 2.5, 5, 7.5, 10}
-NUM_STEPS = 40000
+# NUM_STEPS = 40000
 
 
 with Engine(custom_parser=parser) as engine:
@@ -134,7 +134,7 @@ with Engine(custom_parser=parser) as engine:
     # config lr policy
     total_iteration = config.nepochs * config.niters_per_epoch
     lr_policy = WarmUpPolyLR(base_lr, config.lr_power, total_iteration, config.niters_per_epoch * config.warm_up_epoch)
-
+    NUM_STEPS = total_iteration
     if engine.distributed:
         print('distributed !!')
         if torch.cuda.is_available():
@@ -723,6 +723,61 @@ with Engine(custom_parser=parser) as engine:
 
                 ####*****************************************************
 
+            elif config.exp_num == 11:
+                if (epoch > (epoch // 4)):
+                    ####**add isda loss unsup label***************************************************
+                    #
+                    # _, pred_sup_l = model(imgs, step=1, isda=True)
+                    # _, pred_unsup_l = model(unsup_imgs, step=1, isda=True)
+                    x_unsup_l, feature_x_unsup_l, pred_unsup_l = model(unsup_imgs, step=1, isda=True)
+                    x_unsup_r, feature_x_unsup_r, pred_unsup_r = model(unsup_imgs, step=2, isda=True)
+
+                    # ratio = LAMBDA_0 * global_iteration / NUM_STEPS
+
+                    _, max_l = torch.max(pred_unsup_l, dim=1)
+                    _, max_r = torch.max(pred_unsup_r, dim=1)
+                    max_l = max_l.long()
+                    max_r = max_r.long()
+                    # print(max_r)
+                    # print(max_r.shape)
+                    # print(max_l.shape)
+                    # input()
+
+                    aug_ratio = 1.0
+                    x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l,
+                                                      max_r, ratio, aug_ratio=aug_ratio)
+                    x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r,
+                                                      max_l, ratio, aug_ratio=aug_ratio)
+
+                    # x_isda_r = isda_augmentor_1(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
+                    # x_dsn_isda_r = isda_augmentor_2(feature_x_dsn_unsup_r, model.module.branch2.final_conv_2, x_dsn_unsup_r, max_r, ratio)
+                    # print(x_isda.shape)
+                    # print(gts.shape)
+                    _, h, w = max_l.shape
+                    x_isda_pred_unsup_l = F.interpolate(input=x_isda_unsup_l, size=(h, w), mode='bilinear',
+                                                        align_corners=True)
+                    loss_isda_unlabeled = criterion(x_isda_pred_unsup_l, max_r)
+
+                    x_isda_pred_unsup_r = F.interpolate(input=x_isda_unsup_r, size=(h, w), mode='bilinear',
+                                                        align_corners=True)
+                    loss_isda_unlabeled += criterion(x_isda_pred_unsup_r, max_l)
+                    # loss_isda_r = criterion_isda([x_isda_r, x_dsn_isda_r], max_r)
+                    # print(loss_isda_l)
+                    # print(loss_isda_r)
+                    # input()
+                    #
+                    # reduce_loss = engine.all_reduce_tensor(loss)
+                    # print(reduce_loss)
+                    _, pred_sup_l = model(imgs, step=1)
+                    _, pred_sup_r = model(imgs, step=2)
+
+                    ####*****************************************************
+                else:
+                    loss_isda_unlabeled = torch.tensor(0)
+                    _, pred_sup_l = model(imgs, step=1)
+                    _, pred_unsup_l = model(unsup_imgs, step=1)
+                    _, pred_sup_r = model(imgs, step=2)
+                    _, pred_unsup_r = model(unsup_imgs, step=2)
 
             else:
                 _, pred_sup_l = model(imgs, step=1)
@@ -786,6 +841,10 @@ with Engine(custom_parser=parser) as engine:
             elif config.exp_num == 8:
                 loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
             elif config.exp_num == 9:
+                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            elif config.exp_num == 10:
+                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            elif config.exp_num == 11:
                 loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
             else:
                 loss = loss_sup + loss_sup_r + cps_loss 
@@ -867,6 +926,24 @@ with Engine(custom_parser=parser) as engine:
                          + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
             elif config.exp_num == 9:
                 print_str = 'E9poch{}/{}'.format(epoch, config.nepochs) \
+                         + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+                         + ' lr=%.2e' % lr \
+                         + ' loss_sup=%.2f' % loss_sup.item() \
+                         + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+                         + ' loss_cps=%.4f' % cps_loss.item() \
+                         + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+
+            elif config.exp_num == 10:
+                print_str = 'E10poch{}/{}'.format(epoch, config.nepochs) \
+                         + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+                         + ' lr=%.2e' % lr \
+                         + ' loss_sup=%.2f' % loss_sup.item() \
+                         + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+                         + ' loss_cps=%.4f' % cps_loss.item() \
+                         + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+
+            elif config.exp_num == 11:
+                print_str = 'E11poch{}/{}'.format(epoch, config.nepochs) \
                          + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
                          + ' lr=%.2e' % lr \
                          + ' loss_sup=%.2f' % loss_sup.item() \

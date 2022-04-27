@@ -120,6 +120,8 @@ C.weight_decay = 1e-4
 C.max_samples = max(C.num_train_imgs, C.num_unsup_imgs)     # Define the iterations in an epoch
 C.cold_start = 0
 C.niters_per_epoch = int(math.ceil(C.max_samples * 1.0 // C.batch_size))
+# print("test")
+# print(C.niters_per_epoch)
 C.num_workers = 8
 C.train_scale_array = [0.5, 0.75, 1, 1.5, 1.75, 2.0]
 C.warm_up_epoch = 0
