@@ -507,7 +507,7 @@ with Engine(custom_parser=parser) as engine:
                 _, max_r = torch.max(pred_unsup_r, dim=1)
                 max_l = max_l.long()
                 max_r = max_r.long()
-                # print(max_r)
+                print(max_r[0].tolist())
                 # print(max_r.shape)
                 # print(max_l.shape)
                 # input()

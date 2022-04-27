@@ -24,7 +24,10 @@ class EstimatorCV():
         )
 
         label_mask = (labels == 255).long()
-        labels = ((1 - label_mask).mul(labels) + label_mask * 19).long()
+        # TODO
+        # labels = ((1 - label_mask).mul(labels) + label_mask * 19).long()
+        labels = ((1 - label_mask).mul(labels) + label_mask * C).long()
+
 
         onehot = torch.zeros(N, C).cuda()
         onehot.scatter_(1, labels.view(-1, 1), 1)
