@@ -182,6 +182,12 @@ else:
     # C.lr = 0.005
     C.aug_ratio = 0.5
 
+if os.getenv('numstep'):
+    C.num_step = float(os.environ['numstep'])
+else:
+    # C.lr = 0.005
+    C.num_step = 40000
+
 # if os.getenv('restore_checkpoint_path'):
 #     C.continue_fpath = str(os.environ['restore_checkpoint_path'])
 #     # print(C.continue_fpath)

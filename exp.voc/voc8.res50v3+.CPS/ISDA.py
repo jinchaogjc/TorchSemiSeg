@@ -74,7 +74,7 @@ class ISDALoss(nn.Module):
 
         self.cross_entropy = nn.CrossEntropyLoss()
 
-    def isda_aug(self, fc, features, y, labels, cv_matrix, ratio, aug_ratio=0.5):
+    def isda_aug(self, fc, features, y, labels, cv_matrix, ratio):
         label_mask = (labels == 255).long()
         labels = (1 - label_mask).mul(labels).long()
 
@@ -104,11 +104,11 @@ class ISDALoss(nn.Module):
         # !!!!!!!!!!!!!!!!RuntimeError: expected backend CUDA and dtype Float but got backend CUDA and dtype Long
         label_mask = label_mask.float()
 
-        aug_result = y + aug_ratio * sigma2.mul((1 - label_mask).view(N, 1).expand(N, C))
+        aug_result = y + 0.5 * sigma2.mul((1 - label_mask).view(N, 1).expand(N, C))
 
         return aug_result
 
-    def forward(self, features, final_conv, y, target_x, ratio, aug_ratio=0.5):
+    def forward(self, features, final_conv, y, target_x, ratio):
         # features = model(x)
 
         N, A, H, W = features.size()
@@ -130,7 +130,7 @@ class ISDALoss(nn.Module):
         self.estimator.update_CV(features_NHWxA.detach(), target_x_NHW)
 
         isda_aug_y_NHWxC = self.isda_aug(final_conv, features_NHWxA, y_NHWxC, target_x_NHW,
-                                         self.estimator.CoVariance.detach(), ratio, aug_ratio=aug_ratio)
+                                         self.estimator.CoVariance.detach(), ratio)
 
         isda_aug_y = isda_aug_y_NHWxC.view(N, H, W, C).permute(0, 3, 1, 2)
 

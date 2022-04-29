@@ -51,7 +51,7 @@ else:
 
 LAMBDA_0 = config.lambda0 # select from {1, 2.5, 5, 7.5, 10}
 # NUM_STEPS = 40000
-
+NUM_STEPS = config.num_step
 
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
@@ -134,7 +134,7 @@ with Engine(custom_parser=parser) as engine:
     # config lr policy
     total_iteration = config.nepochs * config.niters_per_epoch
     lr_policy = WarmUpPolyLR(base_lr, config.lr_power, total_iteration, config.niters_per_epoch * config.warm_up_epoch)
-    NUM_STEPS = total_iteration
+    # NUM_STEPS = total_iteration
     if engine.distributed:
         print('distributed !!')
         if torch.cuda.is_available():
@@ -493,7 +493,8 @@ with Engine(custom_parser=parser) as engine:
                 # # ******************************************************************************
 
             elif config.exp_num == 7:
-
+                # print("NUM_STEPS:")
+                # print(NUM_STEPS)
                 ####**add isda loss unsup label***************************************************
                 #
                 # _, pred_sup_l = model(imgs, step=1, isda=True)
@@ -507,14 +508,14 @@ with Engine(custom_parser=parser) as engine:
                 _, max_r = torch.max(pred_unsup_r, dim=1)
                 max_l = max_l.long()
                 max_r = max_r.long()
-                print(max_r[0].tolist())
+                # print(max_r[0].tolist())
                 # print(max_r.shape)
                 # print(max_l.shape)
                 # input()
 
-                aug_ratio = 1.0
-                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio, aug_ratio=aug_ratio)
-                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_l, ratio, aug_ratio=aug_ratio)
+                # aug_ratio = 1.0
+                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l, max_r, ratio)
+                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_l, ratio)
 
                 # x_isda_r = isda_augmentor_1(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r, max_r, ratio)
                 # x_dsn_isda_r = isda_augmentor_2(feature_x_dsn_unsup_r, model.module.branch2.final_conv_2, x_dsn_unsup_r, max_r, ratio)
