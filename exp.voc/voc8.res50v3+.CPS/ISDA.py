@@ -148,6 +148,9 @@ if __name__ == '__main__':
     model = Network(21, criterion=nn.CrossEntropyLoss(reduction='mean', ignore_index=255),
                     pretrained_model="../../DATA/pytorch-weight/resnet50_v1c.pth",
                     norm_layer=nn.BatchNorm2d)
+    for name, param in model.named_parameters():
+        print(name, "***********", param.shape)
+
     init_weight(model.branch1.business_layer, nn.init.kaiming_normal_,
                 nn.BatchNorm2d, 1e-5, 0.1,
                 mode='fan_in', nonlinearity='relu')

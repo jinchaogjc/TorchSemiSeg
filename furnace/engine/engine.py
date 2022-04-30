@@ -101,7 +101,9 @@ class Engine(object):
 
     def update_iteration(self, epoch, iteration):
         self.state.epoch = epoch
+        # print(epoch)
         self.state.iteration = iteration
+        # print(iteration)
 
     def save_checkpoint(self, path):
         logger.info("Saving checkpoint to file {}".format(path))
