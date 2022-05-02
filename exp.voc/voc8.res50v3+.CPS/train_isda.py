@@ -94,12 +94,14 @@ with Engine(custom_parser=parser) as engine:
     model = Network(config.num_classes, criterion=criterion,
                     pretrained_model=config.pretrained_model,
                     norm_layer=BatchNorm2d)
+
     init_weight(model.branch1.business_layer, nn.init.kaiming_normal_,
                 BatchNorm2d, config.bn_eps, config.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
     init_weight(model.branch2.business_layer, nn.init.kaiming_normal_,
                 BatchNorm2d, config.bn_eps, config.bn_momentum,
                 mode='fan_in', nonlinearity='relu')
+
 
     # define the learning rate
     base_lr = config.lr
