@@ -76,7 +76,8 @@ def get_train_loader(engine, dataset, train_source, unsupervised=False):
     train_preprocess = TrainPre(config.image_mean, config.image_std)
 
     if 'selftrain' in train_source:
-        train_dataset = dataset(data_setting, "train", train_preprocess, config.tot_samples, unsupervised=unsupervised)
+        train_dataset = dataset(data_setting, "train", train_preprocess,
+                                config.tot_samples, unsupervised=unsupervised)
     else:
         train_dataset = dataset(data_setting, "train", train_preprocess,
                                 config.max_samples, unsupervised=unsupervised)

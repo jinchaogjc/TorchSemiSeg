@@ -83,7 +83,7 @@ class SegEvaluator(Evaluator):
         results_dict = {'hist': hist_tmp, 'labeled': labeled_tmp,
                         'correct': correct_tmp}
 
-        if self.save_path is not None:
+        if (self.save_path is not None) & False:
             ensure_dir(self.save_path)
             ensure_dir(self.save_path+'_color')
 

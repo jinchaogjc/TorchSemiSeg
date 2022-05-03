@@ -1,9 +1,4 @@
-<<<<<<< HEAD
 azureml-core
+Rust
 cryptography==36.0.2 #2.5
 importlib-metadata==0.23
-=======
-#azureml-core
-#cryptography==36.0.2 #2.5
-#importlib-metadata==0.23
->>>>>>> my-temporary-work
