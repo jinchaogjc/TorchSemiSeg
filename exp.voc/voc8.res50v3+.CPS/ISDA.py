@@ -25,8 +25,9 @@ class EstimatorCV():
 
         label_mask = (labels == 255).long()
         # TODO
+        INDEX255_TO_0 = 0
         # labels = ((1 - label_mask).mul(labels) + label_mask * 19).long()
-        labels = ((1 - label_mask).mul(labels) + label_mask * C).long()
+        labels = ((1 - label_mask).mul(labels) + label_mask * INDEX255_TO_0).long()
 
 
         onehot = torch.zeros(N, C).cuda()
@@ -156,7 +157,9 @@ if __name__ == '__main__':
                 mode='fan_in', nonlinearity='relu')
     feature_x_unsup_l = torch.randn(2, 256, 128, 128)
     x_unsup_l = torch.randn(2, 21, 128, 128)
-    max_r = torch.randint(21, (2, 512, 512))
+    max_r = torch.randint(22, (2, 512, 512))
+    max_r[max_r==21] = 255
+    print(torch.unique(max_r))
     ratio = 7.5 / 40000
     # isda_augmentor_1 = ISDALoss(256, 21, "cuda")
     device = "cuda:0"
