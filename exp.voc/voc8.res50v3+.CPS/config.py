@@ -6,6 +6,7 @@ from __future__ import print_function
 
 import os
 import os.path as osp
+import pdb
 import sys
 import time
 import math
@@ -187,6 +188,13 @@ if os.getenv('numstep'):
 else:
     # C.lr = 0.005
     C.num_step = 40000
+
+if os.getenv('debug') is not None:
+    C.is_debug = True if int(os.environ['debug'])==1 else False
+    # print(is_debug)
+    # pdb.set_trace()
+else:
+    C.is_debug = False
 
 # test
 # if os.getenv('restore_checkpoint_path'):

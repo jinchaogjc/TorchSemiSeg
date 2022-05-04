@@ -47,11 +47,6 @@ parser = argparse.ArgumentParser()
 
 os.environ['MASTER_PORT'] = '169711'
 
-if os.getenv('debug') is not None:
-    is_debug = os.environ['debug']
-else:
-    is_debug = False
-
 LAMBDA_0 = config.lambda0  # select from {1, 2.5, 5, 7.5, 10}
 # NUM_STEPS = 40000
 NUM_STEPS = config.num_step
@@ -172,10 +167,14 @@ with Engine(custom_parser=parser) as engine:
         if engine.distributed:
             train_sampler.set_epoch(epoch)
         bar_format = '{desc}[{elapsed}<{remaining},{rate_fmt}]'
-
-        if is_debug:
+        # pdb.set_trace()
+        # print("is_debug:", config.is_debug)
+        # print("is_debug:", type(config.is_debug))
+        if config.is_debug:
+            print("iter: 500")
             pbar = tqdm(range(500), file=sys.stdout, bar_format=bar_format)
         else:
+            print(config.niters_per_epoch)
             pbar = tqdm(range(config.niters_per_epoch), file=sys.stdout, bar_format=bar_format)
 
         dataloader = iter(train_loader)
@@ -237,12 +236,15 @@ with Engine(custom_parser=parser) as engine:
                 x_isda_pred_r = F.interpolate(input=x_isda_r, size=(h, w), mode='bilinear', align_corners=True)
                 loss_isda += criterion(x_isda_pred_r, gts)
 
-                x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
-                x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
-                _, max_l = torch.max(pred_sup_l, dim=1)
-                _, max_r = torch.max(pred_sup_r, dim=1)
+                # x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
+                # x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
+                # _, max_l = torch.max(pred_sup_l, dim=1)
+                # _, max_r = torch.max(pred_sup_r, dim=1)
+                _, max_l = torch.max(x_isda_pred_l, dim=1)
+                _, max_r = torch.max(x_isda_pred_r, dim=1)
                 max_l = max_l.long()
                 max_r = max_r.long()
+                pdb.set_trace()
                 x_isda_l = isda_augmentor_1(feature_x_sup_l, model.module.branch1.final_conv_1, x_sup_l, max_r, ratio)
                 # print(x_isda.shape)
                 x_isda_r = isda_augmentor_2(feature_x_sup_r, model.module.branch2.final_conv_1, x_sup_r, max_l, ratio)
