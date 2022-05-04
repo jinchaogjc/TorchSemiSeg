@@ -51,6 +51,27 @@ LAMBDA_0 = config.lambda0  # select from {1, 2.5, 5, 7.5, 10}
 # NUM_STEPS = 40000
 NUM_STEPS = config.num_step
 
+def test():
+    x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
+    x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
+    # x_dsn_sup_r, feature_x_dsn_sup_r, feature_x_sup_r, pred_sup_r = \
+    #     model(imgs, step=2, isda=True)
+
+    # pdb.set_trace()
+    x_isda_l = isda_augmentor_1(feature_x_sup_l, model.module.branch1.final_conv_1, x_sup_l, gts, ratio)
+    # print(x_isda.shape)
+    x_isda_r = isda_augmentor_2(feature_x_sup_r, model.module.branch2.final_conv_1, x_sup_r, gts, ratio)
+    # # print(x_isda.shape)
+    # # print(gts.shape)
+    # loss_isda = criterion_isda([x_isda, x_dsn_isda], gts)
+    _, h, w = gts.shape
+    x_isda_pred_l = F.interpolate(input=x_isda_l, size=(h, w), mode='bilinear', align_corners=True)
+    loss_isda = criterion(x_isda_pred_l, gts)
+    # print("loss_isda", loss_isda)
+    x_isda_pred_r = F.interpolate(input=x_isda_r, size=(h, w), mode='bilinear', align_corners=True)
+    loss_isda += criterion(x_isda_pred_r, gts)
+    return loss_isda
+
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
     # print("sys.argv", sys.argv)
@@ -351,6 +372,7 @@ with Engine(custom_parser=parser) as engine:
                 #
                 # _, pred_sup_l = model(imgs, step=1, isda=True)
                 # _, pred_unsup_l = model(unsup_imgs, step=1, isda=True)
+
                 x_unsup_l, feature_x_unsup_l, pred_unsup_l = model(unsup_imgs, step=1, isda=True)
                 x_unsup_r, feature_x_unsup_r, pred_unsup_r = model(unsup_imgs, step=2, isda=True)
 
@@ -367,6 +389,7 @@ with Engine(custom_parser=parser) as engine:
                                                   max_l, ratio)
 
                 _, h, w = max_l.shape
+                # pdb.set_trace()
                 x_isda_pred_unsup_l = F.interpolate(input=x_isda_unsup_l, size=(h, w), mode='bilinear',
                                                     align_corners=True)
                 loss_isda_unlabeled = criterion(x_isda_pred_unsup_l, max_r)
@@ -799,11 +822,11 @@ with Engine(custom_parser=parser) as engine:
                 _, h, w = max_l.shape
                 x_isda_pred_unsup_l = F.interpolate(input=x_isda_unsup_l, size=(h, w), mode='bilinear',
                                                     align_corners=True)
-                loss_isda_unlabeled = criterion(x_isda_pred_unsup_l, max_r)
+                # loss_isda_unlabeled = criterion(x_isda_pred_unsup_l, max_r)
 
                 x_isda_pred_unsup_r = F.interpolate(input=x_isda_unsup_r, size=(h, w), mode='bilinear',
                                                     align_corners=True)
-                loss_isda_unlabeled += criterion(x_isda_pred_unsup_r, max_l)
+                # loss_isda_unlabeled += criterion(x_isda_pred_unsup_r, max_l)
                 # loss_isda_r = criterion_isda([x_isda_r, x_dsn_isda_r], max_r)
                 # print(loss_isda_l)
                 # print(loss_isda_r)
@@ -822,81 +845,46 @@ with Engine(custom_parser=parser) as engine:
                 _, pred_sup_r = model(imgs, step=2)
                 _, pred_unsup_r = model(unsup_imgs, step=2)
 
+
+            ### cps loss ###
             if config.exp_num == 12:
-                pass
-                ### cps loss ###
-                pred_l = torch.cat([pred_sup_l, pred_unsup_l], dim=0)
-                pred_r = torch.cat([pred_sup_r, pred_unsup_r], dim=0)
-                _, max_l = torch.max(pred_l, dim=1)
-                _, max_r = torch.max(pred_r, dim=1)
-                max_l = max_l.long()
-                max_r = max_r.long()
-                cps_loss = criterion(pred_l, max_r) + criterion(pred_r, max_l)
-                cps_loss += loss_isda_unlabeled * config.scale
-                # print("add loss_isda_unlabeled.")
-                dist.all_reduce(cps_loss, dist.ReduceOp.SUM)
-                cps_loss = cps_loss / engine.world_size
-                cps_loss = cps_loss * config.cps_weight
-
-                ### standard cross entropy loss ###
-                loss_sup = criterion(pred_sup_l, gts)
-                dist.all_reduce(loss_sup, dist.ReduceOp.SUM)
-                loss_sup = loss_sup / engine.world_size
-
-                loss_sup_r = criterion(pred_sup_r, gts)
-                dist.all_reduce(loss_sup_r, dist.ReduceOp.SUM)
-                loss_sup_r = loss_sup_r / engine.world_size
-
-                unlabeled_loss = False
-
-                current_idx = epoch * config.niters_per_epoch + idx
-                lr = lr_policy.get_lr(current_idx)
-
-                # reset the learning rate
-                optimizer_l.param_groups[0]['lr'] = lr
-                optimizer_l.param_groups[1]['lr'] = lr
-                for i in range(2, len(optimizer_l.param_groups)):
-                    optimizer_l.param_groups[i]['lr'] = lr
-                optimizer_r.param_groups[0]['lr'] = lr
-                optimizer_r.param_groups[1]['lr'] = lr
-                for i in range(2, len(optimizer_r.param_groups)):
-                    optimizer_r.param_groups[i]['lr'] = lr
+                pred_l = torch.cat([pred_sup_l, x_isda_pred_unsup_l], dim=0)
+                pred_r = torch.cat([pred_sup_r, x_isda_pred_unsup_r], dim=0)
             else:
-                ### cps loss ###
                 pred_l = torch.cat([pred_sup_l, pred_unsup_l], dim=0)
                 pred_r = torch.cat([pred_sup_r, pred_unsup_r], dim=0)
-                _, max_l = torch.max(pred_l, dim=1)
-                _, max_r = torch.max(pred_r, dim=1)
-                max_l = max_l.long()
-                max_r = max_r.long()
-                cps_loss = criterion(pred_l, max_r) + criterion(pred_r, max_l)
-                dist.all_reduce(cps_loss, dist.ReduceOp.SUM)
-                cps_loss = cps_loss / engine.world_size
-                cps_loss = cps_loss * config.cps_weight
+            _, max_l = torch.max(pred_l, dim=1)
+            _, max_r = torch.max(pred_r, dim=1)
+            max_l = max_l.long()
+            max_r = max_r.long()
+            cps_loss = criterion(pred_l, max_r) + criterion(pred_r, max_l)
+            dist.all_reduce(cps_loss, dist.ReduceOp.SUM)
+            cps_loss = cps_loss / engine.world_size
+            cps_loss = cps_loss * config.cps_weight
 
-                ### standard cross entropy loss ###
-                loss_sup = criterion(pred_sup_l, gts)
-                dist.all_reduce(loss_sup, dist.ReduceOp.SUM)
-                loss_sup = loss_sup / engine.world_size
+            ### standard cross entropy loss ###
+            loss_sup = criterion(pred_sup_l, gts)
+            dist.all_reduce(loss_sup, dist.ReduceOp.SUM)
+            loss_sup = loss_sup / engine.world_size
 
-                loss_sup_r = criterion(pred_sup_r, gts)
-                dist.all_reduce(loss_sup_r, dist.ReduceOp.SUM)
-                loss_sup_r = loss_sup_r / engine.world_size
+            loss_sup_r = criterion(pred_sup_r, gts)
+            dist.all_reduce(loss_sup_r, dist.ReduceOp.SUM)
+            loss_sup_r = loss_sup_r / engine.world_size
 
-                unlabeled_loss = False
+            unlabeled_loss = False
 
-                current_idx = epoch * config.niters_per_epoch + idx
-                lr = lr_policy.get_lr(current_idx)
+            current_idx = epoch * config.niters_per_epoch + idx
+            lr = lr_policy.get_lr(current_idx)
 
-                # reset the learning rate
-                optimizer_l.param_groups[0]['lr'] = lr
-                optimizer_l.param_groups[1]['lr'] = lr
-                for i in range(2, len(optimizer_l.param_groups)):
-                    optimizer_l.param_groups[i]['lr'] = lr
-                optimizer_r.param_groups[0]['lr'] = lr
-                optimizer_r.param_groups[1]['lr'] = lr
-                for i in range(2, len(optimizer_r.param_groups)):
-                    optimizer_r.param_groups[i]['lr'] = lr
+            # reset the learning rate
+            optimizer_l.param_groups[0]['lr'] = lr
+            optimizer_l.param_groups[1]['lr'] = lr
+            for i in range(2, len(optimizer_l.param_groups)):
+                optimizer_l.param_groups[i]['lr'] = lr
+            optimizer_r.param_groups[0]['lr'] = lr
+            optimizer_r.param_groups[1]['lr'] = lr
+            for i in range(2, len(optimizer_r.param_groups)):
+                optimizer_r.param_groups[i]['lr'] = lr
 
             if config.exp_num == -1:
                 pass
@@ -906,6 +894,10 @@ with Engine(custom_parser=parser) as engine:
             elif config.exp_num == 2:
                 loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_labeled + config.scale * loss_isda_unlabeled
             elif config.exp_num == 3:
+                dist.all_reduce(loss_isda, dist.ReduceOp.SUM)
+                loss_isda = loss_isda / engine.world_size
+                dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
+                loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
                 loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_unlabeled
             elif config.exp_num == 4:
                 loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_labeled
@@ -926,6 +918,10 @@ with Engine(custom_parser=parser) as engine:
                     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
                 else:
                     loss = loss_sup + loss_sup_r + cps_loss + 1e-10 * loss_isda_unlabeled
+            # elif config.exp_num == 12:
+            #     dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
+            #     loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
             else:
                 loss = loss_sup + loss_sup_r + cps_loss
 
