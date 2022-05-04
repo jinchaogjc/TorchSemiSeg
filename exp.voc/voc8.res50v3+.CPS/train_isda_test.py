@@ -51,26 +51,29 @@ LAMBDA_0 = config.lambda0  # select from {1, 2.5, 5, 7.5, 10}
 # NUM_STEPS = 40000
 NUM_STEPS = config.num_step
 
-def test():
-    x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
-    x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
-    # x_dsn_sup_r, feature_x_dsn_sup_r, feature_x_sup_r, pred_sup_r = \
-    #     model(imgs, step=2, isda=True)
+def inp_loss(x_isda_l, gts, criterion):
+    h = config.image_height
+    w = config.image_width
+    x_isda_pred = F.interpolate(input=x_isda_l, size=(h, w), mode='bilinear', align_corners=True)
+    loss_isda = criterion(x_isda_pred, gts)
+    return loss_isda, x_isda_pred
 
-    # pdb.set_trace()
-    x_isda_l = isda_augmentor_1(feature_x_sup_l, model.module.branch1.final_conv_1, x_sup_l, gts, ratio)
-    # print(x_isda.shape)
-    x_isda_r = isda_augmentor_2(feature_x_sup_r, model.module.branch2.final_conv_1, x_sup_r, gts, ratio)
-    # # print(x_isda.shape)
-    # # print(gts.shape)
-    # loss_isda = criterion_isda([x_isda, x_dsn_isda], gts)
-    _, h, w = gts.shape
-    x_isda_pred_l = F.interpolate(input=x_isda_l, size=(h, w), mode='bilinear', align_corners=True)
-    loss_isda = criterion(x_isda_pred_l, gts)
-    # print("loss_isda", loss_isda)
-    x_isda_pred_r = F.interpolate(input=x_isda_r, size=(h, w), mode='bilinear', align_corners=True)
-    loss_isda += criterion(x_isda_pred_r, gts)
-    return loss_isda
+def max_label(x_isda_pred):
+    _, maxlabel = torch.max(x_isda_pred, dim=1)
+    maxlabel = maxlabel.long()
+    return maxlabel
+
+def isda_aug_loss(model, imgs, labels_l, labels_r, ratio, criterion):
+    x_l, feature_x_l, pred_l = model(imgs, step=1, isda=True)
+    x_r, feature_x_r, pred_r = model(imgs, step=2, isda=True)
+
+    x_isda_l = isda_augmentor_1(feature_x_l, model.module.branch1.final_conv_1, x_l, labels_r, ratio)
+    x_isda_r = isda_augmentor_2(feature_x_r, model.module.branch2.final_conv_1, x_r, labels_l, ratio)
+
+    loss_isda, x_isda_pred_l = inp_loss(x_isda_l, labels_r, criterion)
+    loss_isda_tmp, x_isda_pred_r = inp_loss(x_isda_r, labels_l, criterion)
+    loss_isda += loss_isda_tmp
+    return loss_isda, pred_l, pred_r, x_isda_pred_l, x_isda_pred_r
 
 with Engine(custom_parser=parser) as engine:
     args = parser.parse_args()
@@ -238,68 +241,24 @@ with Engine(custom_parser=parser) as engine:
                 pass
 
             elif config.exp_num == 1:
-                x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
-                x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
-                # x_dsn_sup_r, feature_x_dsn_sup_r, feature_x_sup_r, pred_sup_r = \
-                #     model(imgs, step=2, isda=True)
 
-                # pdb.set_trace()
-                x_isda_l = isda_augmentor_1(feature_x_sup_l, model.module.branch1.final_conv_1, x_sup_l, gts, ratio)
-                # print(x_isda.shape)
-                x_isda_r = isda_augmentor_2(feature_x_sup_r, model.module.branch2.final_conv_1, x_sup_r, gts, ratio)
-                # # print(x_isda.shape)
-                # # print(gts.shape)
-                # loss_isda = criterion_isda([x_isda, x_dsn_isda], gts)
-                _, h, w = gts.shape
-                x_isda_pred_l = F.interpolate(input=x_isda_l, size=(h, w), mode='bilinear', align_corners=True)
-                loss_isda = criterion(x_isda_pred_l, gts)
-                # print("loss_isda", loss_isda)
-                x_isda_pred_r = F.interpolate(input=x_isda_r, size=(h, w), mode='bilinear', align_corners=True)
-                loss_isda += criterion(x_isda_pred_r, gts)
+                loss_isda, _, _, x_isda_pred_l, x_isda_pred_r = \
+                    isda_aug_loss(model, imgs, gts, gts, ratio, criterion)
 
-                # x_sup_l, feature_x_sup_l, pred_sup_l = model(imgs, step=1, isda=True)
-                # x_sup_r, feature_x_sup_r, pred_sup_r = model(imgs, step=2, isda=True)
-                # _, max_l = torch.max(pred_sup_l, dim=1)
-                # _, max_r = torch.max(pred_sup_r, dim=1)
-                _, max_l = torch.max(x_isda_pred_l, dim=1)
-                _, max_r = torch.max(x_isda_pred_r, dim=1)
-                max_l = max_l.long()
-                max_r = max_r.long()
-                pdb.set_trace()
-                x_isda_l = isda_augmentor_1(feature_x_sup_l, model.module.branch1.final_conv_1, x_sup_l, max_r, ratio)
-                # print(x_isda.shape)
-                x_isda_r = isda_augmentor_2(feature_x_sup_r, model.module.branch2.final_conv_1, x_sup_r, max_l, ratio)
-                # # print(x_isda.shape)
-                # # print(gts.shape)
-                # loss_isda = criterion_isda([x_isda, x_dsn_isda], gts)
+                max_l = max_label(x_isda_pred_l)
+                max_r = max_label(x_isda_pred_r)
 
-                x_isda_pred_l = F.interpolate(input=x_isda_l, size=(h, w), mode='bilinear', align_corners=True)
-                loss_isda_labeled = criterion(x_isda_pred_l, max_r)
-                # print("loss_isda", loss_isda)
-                x_isda_pred_r = F.interpolate(input=x_isda_r, size=(h, w), mode='bilinear', align_corners=True)
-                loss_isda_labeled += criterion(x_isda_pred_r, max_l)
+                loss_isda_labeled, pred_sup_l, pred_sup_r, x_isda_pred_l, x_isda_pred_r = \
+                    isda_aug_loss(model, imgs, max_l, max_r, ratio, criterion)
 
                 x_unsup_l, feature_x_unsup_l, pred_unsup_l = model(unsup_imgs, step=1, isda=True)
                 x_unsup_r, feature_x_unsup_r, pred_unsup_r = model(unsup_imgs, step=2, isda=True)
 
-                _, max_l = torch.max(pred_unsup_l, dim=1)
-                _, max_r = torch.max(pred_unsup_r, dim=1)
-                max_l = max_l.long()
-                max_r = max_r.long()
+                max_l = max_label(pred_unsup_l)
+                max_r = max_label(pred_unsup_r)
 
-                x_isda_unsup_l = isda_augmentor_1(feature_x_unsup_l, model.module.branch1.final_conv_1, x_unsup_l,
-                                                  max_r, ratio)
-                x_isda_unsup_r = isda_augmentor_2(feature_x_unsup_r, model.module.branch2.final_conv_1, x_unsup_r,
-                                                  max_l, ratio)
-
-                x_isda_pred_unsup_l = F.interpolate(input=x_isda_unsup_l, size=(h, w), mode='bilinear',
-                                                    align_corners=True)
-                loss_isda_unlabeled = criterion(x_isda_pred_unsup_l, max_l)
-
-                x_isda_pred_unsup_r = F.interpolate(input=x_isda_unsup_r, size=(h, w), mode='bilinear',
-                                                    align_corners=True)
-                loss_isda_unlabeled += criterion(x_isda_pred_unsup_r, max_r)
-
+                loss_isda_unlabeled, pred_unsup_l, pred_unsup_r, x_isda_pred_l, x_isda_pred_r = \
+                    isda_aug_loss(model, unsup_imgs, max_l, max_r, ratio, criterion)
 
             elif config.exp_num == 2:
                 # # ******************************************************************************
@@ -399,6 +358,7 @@ with Engine(custom_parser=parser) as engine:
                 loss_isda_unlabeled += criterion(x_isda_pred_unsup_r, max_l)
 
                 ####*****************************************************
+
             elif config.exp_num == 4:
                 # print("experiment number is 4")
 
@@ -445,7 +405,6 @@ with Engine(custom_parser=parser) as engine:
                 _, pred_unsup_r = model(unsup_imgs, step=2)
                 #
                 # # ******************************************************************************
-
 
             elif config.exp_num == 5:
                 # print("experiment number is 2")
@@ -886,157 +845,187 @@ with Engine(custom_parser=parser) as engine:
             for i in range(2, len(optimizer_r.param_groups)):
                 optimizer_r.param_groups[i]['lr'] = lr
 
-            if config.exp_num == -1:
-                pass
-            elif config.exp_num == 1:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + \
-                       config.scale * loss_isda_labeled + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 2:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_labeled + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 3:
-                dist.all_reduce(loss_isda, dist.ReduceOp.SUM)
-                loss_isda = loss_isda / engine.world_size
-                dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
-                loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 4:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_labeled
-            elif config.exp_num == 5:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda
-            elif config.exp_num == 6:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_labeled
-            elif config.exp_num == 7:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 8:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 9:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 10:
-                loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-            elif config.exp_num == 11:
-                if (epoch > (epoch // 4)):
-                    loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-                else:
-                    loss = loss_sup + loss_sup_r + cps_loss + 1e-10 * loss_isda_unlabeled
-            # elif config.exp_num == 12:
+            # if config.exp_num == -1:
+            #     pass
+            # elif config.exp_num == 1:
+            #     dist.all_reduce(loss_isda, dist.ReduceOp.SUM)
+            #     loss_isda = loss_isda / engine.world_size
+            #     dist.all_reduce(loss_isda_labeled, dist.ReduceOp.SUM)
+            #     loss_isda_labeled = loss_isda_labeled / engine.world_size
             #     dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
             #     loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + \
+            #            config.scale * loss_isda_labeled + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 2:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_labeled + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 3:
+            #     dist.all_reduce(loss_isda, dist.ReduceOp.SUM)
+            #     loss_isda = loss_isda / engine.world_size
+            #     dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
+            #     loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 4:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda + config.scale * loss_isda_labeled
+            # elif config.exp_num == 5:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda
+            # elif config.exp_num == 6:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_labeled
+            # elif config.exp_num == 7:
             #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
-            else:
-                loss = loss_sup + loss_sup_r + cps_loss
+            # elif config.exp_num == 8:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 9:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 10:
+            #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            # elif config.exp_num == 11:
+            #     if (epoch > (epoch // 4)):
+            #         loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            #     else:
+            #         loss = loss_sup + loss_sup_r + cps_loss + 1e-10 * loss_isda_unlabeled
+            # # elif config.exp_num == 12:
+            # #     dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
+            # #     loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
+            # #     loss = loss_sup + loss_sup_r + cps_loss + config.scale * loss_isda_unlabeled
+            # else:
+            loss = loss_sup + loss_sup_r + cps_loss
+            loss = loss_sup + loss_sup_r + cps_loss
+            if loss_isda is not None:
+                dist.all_reduce(loss_isda, dist.ReduceOp.SUM)
+                loss_isda = loss_isda / engine.world_size
+                loss += config.scale * loss_isda
+            if loss_isda_labeled is not None:
+                dist.all_reduce(loss_isda_labeled, dist.ReduceOp.SUM)
+                loss_isda_labeled = loss_isda_labeled / engine.world_size
+                loss += config.scale * loss_isda_labeled
+            if loss_isda_unlabeled is not None:
+                dist.all_reduce(loss_isda_unlabeled, dist.ReduceOp.SUM)
+                loss_isda_unlabeled = loss_isda_unlabeled / engine.world_size
+                loss += config.scale * loss_isda_unlabeled
 
             loss.backward()
             optimizer_l.step()
             optimizer_r.step()
 
-            if config.exp_num == -1:
-                pass
-            elif config.exp_num == 1:
-                print_str = 'E1poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda=%.4f' % loss_isda.item() \
-                            + ' loss_isda_label=%.4f' % loss_isda_labeled.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-            elif config.exp_num == 2:
-                print_str = 'E2poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_label=%.4f' % loss_isda_labeled.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-            elif config.exp_num == 3:
-                print_str = 'E3poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda=%.4f' % loss_isda.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-            elif config.exp_num == 4:
-                print_str = 'E4poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda=%.4f' % loss_isda.item() \
-                            + ' loss_isda_label=%.4f' % loss_isda_labeled.item()
-            elif config.exp_num == 5:
-                print_str = 'E5poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda=%.4f' % loss_isda.item()
+            # if config.exp_num == -1:
+            #     pass
+            #     if loss_isda is not None:
+            #         print("loss isda not None")
+            #     else:
+            #         print("loss isda None")
+            #     print_str = 'E1poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda=%.4f' % loss_isda.item() \
+            #                 + ' loss_isda_label=%.4f' % loss_isda_labeled.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            # elif config.exp_num == 2:
+            #     print_str = 'E2poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_label=%.4f' % loss_isda_labeled.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            # elif config.exp_num == 3:
+            #     print_str = 'E3poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda=%.4f' % loss_isda.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            # elif config.exp_num == 4:
+            #     print_str = 'E4poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda=%.4f' % loss_isda.item() \
+            #                 + ' loss_isda_label=%.4f' % loss_isda_labeled.item()
+            # elif config.exp_num == 5:
+            #     print_str = 'E5poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda=%.4f' % loss_isda.item()
+            #
+            # elif config.exp_num == 6:
+            #     print_str = 'E6poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item()
+            #
+            # elif config.exp_num == 7:
+            #     print_str = 'E7poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            #
+            # elif config.exp_num == 8:
+            #     print_str = 'E8poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            #
+            # elif config.exp_num == 9:
+            #     print_str = 'E9poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            #
+            # elif config.exp_num == 10:
+            #     print_str = 'E10poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            #
+            # elif config.exp_num == 11:
+            #     print_str = 'E11poch{}/{}'.format(epoch, config.nepochs) \
+            #                 + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+            #                 + ' lr=%.2e' % lr \
+            #                 + ' loss_sup=%.2f' % loss_sup.item() \
+            #                 + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+            #                 + ' loss_cps=%.4f' % cps_loss.item() \
+            #                 + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
+            #
+            # else:
+            print_str = 'Epoch{}/{}'.format(epoch, config.nepochs) \
+                        + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
+                        + ' lr=%.2e' % lr \
+                        + ' loss_sup=%.2f' % loss_sup.item() \
+                        + ' loss_sup_r=%.2f' % loss_sup_r.item() \
+                        + ' loss_cps=%.4f' % cps_loss.item()
+            if loss_isda is not None:
+                print_str += ' loss_isda=%.4f' % loss_isda.item()
+            if loss_isda_labeled is not None:
+                print_str += ' loss_isda_label=%.4f' % loss_isda_labeled.item()
+            if loss_isda_unlabeled is not None:
+                print_str += ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
 
-            elif config.exp_num == 6:
-                print_str = 'E6poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item()
 
-            elif config.exp_num == 7:
-                print_str = 'E7poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-
-            elif config.exp_num == 8:
-                print_str = 'E8poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-
-            elif config.exp_num == 9:
-                print_str = 'E9poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-
-            elif config.exp_num == 10:
-                print_str = 'E10poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-
-            elif config.exp_num == 11:
-                print_str = 'E11poch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item() \
-                            + ' loss_isda_unlabel=%.4f' % loss_isda_unlabeled.item()
-
-            else:
-                print_str = 'Epoch{}/{}'.format(epoch, config.nepochs) \
-                            + ' Iter{}/{}:'.format(idx + 1, config.niters_per_epoch) \
-                            + ' lr=%.2e' % lr \
-                            + ' loss_sup=%.2f' % loss_sup.item() \
-                            + ' loss_sup_r=%.2f' % loss_sup_r.item() \
-                            + ' loss_cps=%.4f' % cps_loss.item()
 
             sum_loss_sup += loss_sup.item()
             sum_loss_sup_r += loss_sup_r.item()

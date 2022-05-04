@@ -1,4 +1,6 @@
 import os
+import pdb
+
 import cv2
 import numpy as np
 import time
@@ -63,9 +65,11 @@ class Evaluator(object):
                 print(m)
                 num = m.split(".")[0].split("-")[1]
                 model_idx[idx] = num
-                sorted_models[idx] = m
+                # sorted_models[idx] = m
+                pdb.set_trace()
+                sorted_models[int(model_idx[idx])] = m
             model_idx = np.array([int(i) for i in model_idx])
-
+            print("models: ", sorted_models)
             down_bound = model_idx >= start_epoch
             up_bound = [True] * len(sorted_models)
             if end_epoch:
