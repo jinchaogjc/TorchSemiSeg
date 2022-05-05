@@ -69,6 +69,27 @@ def isda_aug_loss(model, imgs, labels_l, labels_r, ratio, criterion):
 
     x_isda_l = isda_augmentor_1(feature_x_l, model.module.branch1.final_conv_1, x_l, labels_r, ratio)
     x_isda_r = isda_augmentor_2(feature_x_r, model.module.branch2.final_conv_1, x_r, labels_l, ratio)
+    # pdb.set_trace()
+    x_l_max = max_label(x_l)
+    x_isda_l_max = max_label(x_isda_l)
+    if torch.equal(x_l_max, x_isda_l_max) == False:
+        # pass
+        # pdb.set_trace()
+        diff = torch.eq(x_l_max, x_isda_l_max)
+        diff_res = (diff == 0).nonzero()
+        print("diff pixel:", diff_res)
+        print("diff pixel num:", torch.numel(diff_res))
+    # assert torch.equal(x_l_max, x_isda_l_max)
+    x_r_max = max_label(x_r)
+    x_isda_r_max = max_label(x_isda_r)
+    # assert torch.equal(x_r_max, x_isda_r_max)
+    if torch.equal(x_r_max, x_isda_r_max) == False:
+        # pass
+        # pdb.set_trace()
+        diff = torch.eq(x_r_max, x_isda_r_max)
+        diff_res = (diff == 0).nonzero()
+        print("diff pixel:", diff_res)
+        print("diff pixel num:", torch.numel(diff_res))
 
     loss_isda, x_isda_pred_l = inp_loss(x_isda_l, labels_r, criterion)
     loss_isda_tmp, x_isda_pred_r = inp_loss(x_isda_r, labels_l, criterion)
@@ -247,6 +268,7 @@ with Engine(custom_parser=parser) as engine:
 
                 max_l = max_label(x_isda_pred_l)
                 max_r = max_label(x_isda_pred_r)
+                # pdb.set_trace()
 
                 loss_isda_labeled, pred_sup_l, pred_sup_r, x_isda_pred_l, x_isda_pred_r = \
                     isda_aug_loss(model, imgs, max_l, max_r, ratio, criterion)
