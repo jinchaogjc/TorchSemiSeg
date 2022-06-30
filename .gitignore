@@ -142,3 +142,4 @@ city16*
 DATA/
 .idea/
 ./DATA/
+*job*.sh
