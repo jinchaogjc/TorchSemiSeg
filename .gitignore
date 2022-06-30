@@ -140,3 +140,5 @@ output/
 city4*
 city16*
 DATA/
+.idea
+./DATA/
