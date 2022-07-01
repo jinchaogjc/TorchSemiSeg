@@ -52,7 +52,8 @@ C.link_val_log_file = C.log_dir + '/val_last.log'
 C.dataset_path = osp.join(C.volna, 'DATA/pascal_voc')
 C.img_root_folder = C.dataset_path
 C.gt_root_folder = C.dataset_path
-C.pretrained_model = C.volna + 'DATA/pytorch-weight/resnet50_v1c.pth'
+# C.pretrained_model = C.volna + 'DATA/pytorch-weight/resnet50_v1c.pth'
+C.pretrained_model = C.volna + 'DATA/pytorch-weight/resnet101_v1c.pth'
 
 """ Path Config """
 def add_path(path):
