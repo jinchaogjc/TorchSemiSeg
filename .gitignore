@@ -144,3 +144,4 @@ DATA/
 ./DATA/
 *job*.sh
 results/*
+./DATA
