@@ -143,5 +143,8 @@ DATA/
 .idea/
 ./DATA/
 *job*.sh
-results/ 
 *.out
+results/*
+./DATA
+/DATA
+DATA
