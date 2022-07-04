@@ -9,6 +9,9 @@ export batch_size=8
 export learning_rate=0.0025
 export snapshot_iter=1
 
+export labeled_ratio=16
+export nepochs=32
+
 #TIME=$(date +"TorchSemiSeg_%Y-%m-%d-%H-%M-%S")
 #LOG=$TIME.txt
 

@@ -62,7 +62,17 @@ def add_path(path):
 add_path(osp.join(C.root_dir, 'furnace'))
 
 ''' Experiments Setting '''
-C.labeled_ratio = 8     # ratio of labeled set
+#C.labeled_ratio = 8     # ratio of labeled set
+if os.getenv('labeled_ratio'):
+    C.labeled_ratio = int(os.environ['labeled_ratio'])
+else:
+    C.labeled_ratio = 8
+
+if os.getenv('nepochs'):
+    C.nepochs = int(os.environ['nepochs'])
+else:
+    C.nepochs = 34
+
 C.train_source = osp.join(C.dataset_path, "subset_train_aug/train_aug_labeled_1-{}.txt".format(C.labeled_ratio))
 C.unsup_source = osp.join(C.dataset_path, "subset_train_aug/train_aug_unlabeled_1-{}.txt".format(C.labeled_ratio))
 C.eval_source = osp.join(C.dataset_path, "val.txt")
@@ -100,7 +110,7 @@ C.lr_power = 0.9
 C.momentum = 0.9
 C.weight_decay = 1e-4
 
-C.nepochs = 34
+#C.nepochs = 34
 C.max_samples = max(C.num_train_imgs, C.num_unsup_imgs)     # Define the iterations in an epoch
 C.cold_start = 0
 C.niters_per_epoch = int(math.ceil(C.max_samples * 1.0 // C.batch_size))
